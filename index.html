@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Opay Transfer</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .phone-container {
+            width: 100%;
+            max-width: 375px;
+            background-color: #fff;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            min-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background-color: #3bb56b;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .content {
+            padding: 20px;
+            flex-grow: 1;
+            display: none; /* Hidden by default, shown via JS */
+            flex-direction: column;
+        }
+
+        .active-step {
+            display: flex !important;
+        }
+
+        /* Input Styles */
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .label {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+            outline: none;
+        }
+
+        .input-field:focus {
+            border-color: #3bb56b;
+        }
+
+        .recipient-card {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            border: 1px solid #eee;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            background-color: #3bb56b;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+
+        .name-display {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .btn-next {
+            background-color: #3bb56b;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            border-radius: 25px;
+            margin-top: auto; /* Push to bottom */
+            cursor: pointer;
+        }
+
+        .btn-next:disabled {
+            background-color: #ccc;
+        }
+
+        /* Spinner */
+        .spinner-container {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3bb56b;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            width: 85%;
+            max-width: 320px;
+        }
+
+        .success-icon {
+            color: #3bb56b;
+            font-size: 50px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="phone-container">
+        <div class="header">
+            <span>Opay</span>
+            <span style="font-size: 14px;">Transfer</span>
+        </div>
+
+        <!-- Step 1: Input Amount & Account -->
+        <div id="step1" class="content active-step">
+            <div class="input-group">
+                <div class="label">Amount (₦)</div>
+                <input type="number" id="amountInput" class="input-field" placeholder="0.00" oninput="updateAmountDisplay()">
+            </div>
+
+            <div class="input-group">
+                <div class="label">Recipient Account Number</div>
+                <input type="text" id="accountInput" class="input-field" placeholder="e.g., 08012345678" oninput="searchName()">
+            </div>
+
+            <!-- This card appears after searching -->
+            <div id="recipientCard" class="recipient-card" style="display: none;">
+                <div class="avatar" id="initials">?</div>
+                <div class="name-display" id="foundName">Searching...</div>
+            </div>
+
+            <button id="nextBtn" class="btn-next" onclick="goToStep2()" disabled>Next</button>
+        </div>
+
+        <!-- Step 2: Confirm Details -->
+        <div id="step2" class="content">
+            <h3 style="text-align: center; margin-bottom: 30px;">Confirm Transfer</h3>
+            
+            <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                <span style="color: #666;">To:</span>
+                <span style="font-weight: bold;" id="confirmName">...</span>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; margin-bottom: 30px;">
+                <span style="color: #666;">Amount:</span>
+                <span style="font-weight: bold;" id="confirmAmount">₦0.00</span>
+            </div>
+
+            <button class="btn-next" onclick="processTransfer()">Confirm</button>
+        </div>
+
+        <!-- Loading Screen -->
+        <div id="loadingView" class="spinner-container">
+            <div class="spinner"></div>
+            <p id="loadingText">Searching for recipient...</p>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="successModal" class="modal">
+        <div class="modal-content">
+            <div class="success-icon">✓</div>
+            <h2>Transfer Successful!</h2>
+            <p>You sent <strong id="modalAmount">₦0.00</strong> to<br><strong id="modalName">...</strong></p>
+            <button class="btn-next" onclick="closeModal()" style="margin-top: 15px;">OK</button>
+        </div>
+    </div>
+
+    <script>
+        // Mock Database of Names based on Account Number (Simple Logic)
+        // In a real app, this would be an API call. Here we simulate it.
+        const mockNames = {
+            '080': 'Chinedu Okafor',
+            '081': 'Fatima Abdullahi',
+            '090': 'Adebayo Johnson',
+            'default': 'Unknown User'
+        };
+
+        let currentAmount = 0;
+        let currentName = '';
+
+        // Update Amount Display in real-time
+        function updateAmountDisplay() {
+            const input = document.getElementById('amountInput').value;
+            currentAmount = parseFloat(input) || 0;
+            document.getElementById('confirmAmount').innerText = '₦' + currentAmount.toLocaleString();
+            checkValidation();
+        }
+
+        // Simulate Searching for Name
+        function searchName() {
+            const account = document.getElementById('accountInput').value;
+            const card = document.getElementById('recipientCard');
+            const nameDisplay = document.getElementById('foundName');
+            const initials = document.getElementById('initials');
+            
+            // Show loading state in the card
+            card.style.display = 'flex';
+            nameDisplay.innerText = 'Searching...';
+            initials.innerText = '?';
+
+            // Simulate network delay (1 second)
+            setTimeout(() => {
+                // Determine name based on first 3 digits of account number
+                let foundName = mockNames.default;
+                if (account.length >= 3) {
+                    const prefix = account.substring(0, 3);
+                    if (mockNames[prefix]) {
+                        foundName = mockNames[prefix];
+                    } else {
+                        // Fallback: Generate a name based on input for realism
+                        foundName = "User " + account;
+                    }
+                }
+
+                currentName = foundName;
+                nameDisplay.innerText = foundName;
+                
+                // Set initials
+                const parts = foundName.split(' ');
+                initials.innerText = (parts[0][0] + parts[1][0]).toUpperCase();
+
+                checkValidation();
+            }, 800);
+        }
+
+        // Check if both fields are filled to enable Next button
+        function checkValidation() {
+            const amountInput = document.getElementById('amountInput').value;
+            const accountInput = document.getElementById('accountInput').value;
+            const nextBtn = document.getElementById('nextBtn');
+
+            if (amountInput > 0 && accountInput.length >= 3) {
+                nextBtn.disabled = false;
+            } else {
+                nextBtn.disabled = true;
+            }
+        }
+
+        // Go to Confirmation Screen
+        function goToStep2() {
+            document.getElementById('step1').classList.remove('active-step');
+            document.getElementById('step2').classList.add('active-step');
+            
+            // Populate confirmation details
+            document.getElementById('confirmName').innerText = currentName;
+            document.getElementById('confirmAmount').innerText = '₦' + currentAmount.toLocaleString();
+        }
+
+        // Process Final Transfer
+        function processTransfer() {
+            document.getElementById('step2').classList.remove('active-step');
+            document.getElementById('loadingView').style.display = 'flex';
+            
+            const loadingText = document.getElementById('loadingText');
+            
+            // Step 1: Searching...
+            loadingText.innerText = "Searching for recipient...";
+            
+            setTimeout(() => {
+                // Step 2: Processing...
+                loadingText.innerText = "Processing transfer...";
+                
+                setTimeout(() => {
+                    // Step 3: Success
+                    showSuccess();
+                }, 1500);
+            }, 1000);
+        }
+
+        function showSuccess() {
+            document.getElementById('loadingView').style.display = 'none';
+            
+            // Update Modal
+            document.getElementById('modalAmount').innerText = '₦' + currentAmount.toLocaleString();
+            document.getElementById('modalName').innerText = currentName;
+            
+            // Show Modal
+            document.getElementById('successModal').style.display = 'flex';
+            
+            // Trigger Notification
+            triggerNotification(currentAmount, currentName);
+        }
+
+        function closeModal() {
+            document.getElementById('successModal').style.display = 'none';
+            // Reset everything for next friend
+            document.getElementById('step1').classList.add('active-step');
+            document.getElementById('step2').classList.remove('active-step');
+            document.getElementById('amountInput').value = '';
+            document.getElementById('accountInput').value = '';
+            document.getElementById('recipientCard').style.display = 'none';
+            document.getElementById('nextBtn').disabled = true;
+        }
+
+        function triggerNotification(amount, name) {
+            if ("Notification" in window) {
+                Notification.requestPermission().then(permission => {
+                    if (permission === "granted") {
+                        new Notification("Opay Alert", {
+                            body: `₦${amount.toLocaleString()} sent to ${name}`,
+                            icon: "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1a/Opay_Logo.png/640px-Opay_Logo.png"
+                        });
+                    }
+                });
+            }
+        }
+    </script>
+
+</body>
+  </html>
